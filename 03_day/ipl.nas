@@ -42,12 +42,22 @@ entry:
 		MOV		DH,0			; 磁头0
 		MOV		CL,2			; 扇区2
 
+		MOV		SI,0			; 记录失败次数
+
+retry:
 		MOV		AH,0x02			; AH=0x02: 读盘
 		MOV		AL,1			; 1个扇区
 		MOV		BX,0
 		MOV		DL,0x00			; A驱动器
 		INT		0x13			; 调用磁盘BIOS
-		JC		error			; 读取正常: CF=0, AH=0; 错误: CF=1, 错误代码存入AH
+		JNC		fin				; 没出错的话跳转到fin
+		ADD		SI,1			; 错误计数加1
+		CMP		SI,5			; 是否达到5次
+		JAE		error			; 达到5次输出错误信息
+		MOV		AH,0x00			; 以下3行命令复位软盘状态
+		MOV		DL,0x00
+		INT		0x13
+		JMP 	retry			; 再次尝试
 
 ; 虽然读完了，但是因为没有要做的事情所以休眠
 
