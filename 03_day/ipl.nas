@@ -78,7 +78,8 @@ next:
 		CMP		CH,CYLS			; 是否读完10个柱面
 		JB		readloop		; CH<CYLS，跳转至readloop
 
-; 虽然读完了，但是因为没有要做的事情所以休眠
+; 读取结束，执行haribote.sys
+		JMP		0xc200
 
 fin:
 		HLT						; 让CPU停止，等待命令
