@@ -42,15 +42,16 @@ entry:
 		MOV		DH,0			; 磁头0
 		MOV		CL,2			; 扇区2
 
+readloop:
 		MOV		SI,0			; 记录失败次数
 
 retry:
-		MOV		AH,0x02			; AH=0x02: 读盘
+		MOV		AH,0x02			; AH=0x02: 读盘（软/磁盘->内存）
 		MOV		AL,1			; 1个扇区
 		MOV		BX,0
 		MOV		DL,0x00			; A驱动器
 		INT		0x13			; 调用磁盘BIOS
-		JNC		fin				; 没出错的话跳转到fin
+		JNC		next			; 没出错的话跳转到next
 		ADD		SI,1			; 错误计数加1
 		CMP		SI,5			; 是否达到5次
 		JAE		error			; 达到5次输出错误信息
@@ -58,6 +59,15 @@ retry:
 		MOV		DL,0x00
 		INT		0x13
 		JMP 	retry			; 再次尝试
+
+next:
+		MOV AX,ES				; 把内存地址后移0x20
+		ADD AX,0x20				; 0x20=512/16，由于最终地址=ES*16+BX，因此相当于移动到下一扇区
+		MOV ES,AX				; 因为没有ADD ES,0x20指令，因此这里绕个弯
+		ADD CL,1				; CL加1
+		CMP CL,18				; 比较CL与18
+		JBE readloop			; CL<=18时循环，BE=below or equal
+
 
 ; 虽然读完了，但是因为没有要做的事情所以休眠
 
