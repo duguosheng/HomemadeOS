@@ -1,6 +1,8 @@
 ; hello-os
 ; TAB=4
 
+CYLS	EQU		10				; 读取的柱面数，EQU声明常数
+
 		ORG		0x7c00			; 指明程序的装载地址
 
 ; 以下这段是标准FAT32格式软盘专用的代码
@@ -61,13 +63,20 @@ retry:
 		JMP 	retry			; 再次尝试
 
 next:
-		MOV AX,ES				; 把内存地址后移0x20
-		ADD AX,0x20				; 0x20=512/16，由于最终地址=ES*16+BX，因此相当于移动到下一扇区
-		MOV ES,AX				; 因为没有ADD ES,0x20指令，因此这里绕个弯
-		ADD CL,1				; CL加1
-		CMP CL,18				; 比较CL与18
-		JBE readloop			; CL<=18时循环，BE=below or equal
-
+		MOV 	AX,ES			; 把内存地址后移0x20
+		ADD 	AX,0x20			; 0x20=512/16，由于最终地址=ES*16+BX，因此相当于移动到下一扇区
+		MOV 	ES,AX			; 因为没有ADD ES,0x20指令，因此这里绕个弯
+		ADD 	CL,1			; CL加1
+		CMP 	CL,18			; 比较CL与18
+		JBE 	readloop		; CL<=18时循环，BE=below or equal
+		MOV 	CL,1			; 从扇区1开始
+		ADD 	DH,1			; 磁头号加1
+		CMP 	DH,2			; 磁头号和2进行比较
+		JB		readloop		; DH<2，跳转到readloop（读反面）
+		MOV		DH,0			; 磁头号设为0（读正面）
+		ADD		CH,1			; 柱面位置加1
+		CMP		CH,CYLS			; 是否读完10个柱面
+		JB		readloop		; CH<CYLS，跳转至readloop
 
 ; 虽然读完了，但是因为没有要做的事情所以休眠
 
