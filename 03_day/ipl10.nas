@@ -1,4 +1,4 @@
-; hello-os
+; haribote-ipl
 ; TAB=4
 
 CYLS	EQU		10				; 读取的柱面数，EQU声明常数
@@ -79,6 +79,7 @@ next:
 		JB		readloop		; CH<CYLS，跳转至readloop
 
 ; 读取结束，执行haribote.sys
+		MOV		[0x0ff0],CH		; 将读取的柱面数写入内存地址0x0ff0
 		JMP		0xc200
 
 fin:

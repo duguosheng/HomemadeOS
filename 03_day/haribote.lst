@@ -3,6 +3,9 @@
      3 00000000                                 
      4                                                  ORG     0xc200          ; 这个程序要读取到哪里
      5 0000C200                                 
-     6 0000C200                                 fin:
-     7 0000C200 F4                                      HLT
-     8 0000C201 EB FD                                   JMP     fin
+     6 0000C200 B0 13                                   MOV     AL,0x13         ; VGA显卡，320x200x8位颜色
+     7 0000C202 B4 00                                   MOV     AH,0x00
+     8 0000C204 CD 10                                   INT     0x10
+     9 0000C206                                 fin:
+    10 0000C206 F4                                      HLT
+    11 0000C207 EB FD                                   JMP     fin
