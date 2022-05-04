@@ -32,19 +32,31 @@ struct BOOTINFO {
     char *vram;
 };
 
-
+/**
+ * @brief 程序入口点
+ *
+ */
 void HariMain(void)
 {
     struct BOOTINFO *binfo = (struct BOOTINFO *)0x0ff0;
+    static char font_A[16] = {
+        0x00, 0x18, 0x18, 0x18, 0x18, 0x24, 0x24, 0x24,
+        0x24, 0x7e, 0x42, 0x42, 0x42, 0xe7, 0x00, 0x00
+    };
 
     init_palette();
     init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
+    putfont8(binfo->vram, binfo->scrnx, 10, 10, COL8_FFFFFF, font_A);
 
     for (;;) {
         io_hlt();
     }
 }
 
+/**
+ * @brief 初始化调色板，指定色号
+ *
+ */
 void init_palette(void)
 {
     static unsigned char table_rgb[16 * 3] = {
@@ -68,6 +80,13 @@ void init_palette(void)
     set_palette(0, 15, table_rgb);
 }
 
+/**
+ * @brief 调用BIOS设置调色板
+ *
+ * @param start 起始色号
+ * @param end 终止色号
+ * @param rgb 色号RGB矩阵
+ */
 void set_palette(int start, int end, unsigned char *rgb)
 {
     int i, eflags;
@@ -86,6 +105,17 @@ void set_palette(int start, int end, unsigned char *rgb)
     io_store_eflags(eflags);    // 恢复中断标志位
 }
 
+/**
+ * @brief 绘制矩形
+ *
+ * @param vram 显存起始地址
+ * @param xsize 行像素点数
+ * @param c 颜色
+ * @param x0 横坐标起始位置
+ * @param y0 纵坐标起始位置，[x0,y0]构成矩形左上角坐标
+ * @param x1 横坐标结束位置
+ * @param y1 纵坐标结束位置，[x1,y1]构成矩阵右下角坐标
+ */
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1)
 {
     int x, y;
@@ -95,6 +125,13 @@ void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, i
     }
 }
 
+/**
+ * @brief 初始化屏幕
+ *
+ * @param vram 显存起始地址
+ * @param x 行像素点数
+ * @param y 列像素点数
+ */
 void init_screen(char *vram, int x, int y)
 {
     boxfill8(vram, x, COL8_008484, 0, 0, x - 1, y - 29);
@@ -114,4 +151,32 @@ void init_screen(char *vram, int x, int y)
     boxfill8(vram, x, COL8_FFFFFF, x - 47, y - 3, x - 4, y - 3);
     boxfill8(vram, x, COL8_FFFFFF, x - 3, y - 24, x - 3, y - 3);
     return;
+}
+
+/**
+ * @brief 绘制一个字符
+ *
+ * @param vram 显存起始地址
+ * @param xsize 行像素点数
+ * @param x 起始位置x
+ * @param y 起始位置y，[x,y]是字符左上角像素点的坐标
+ * @param c 颜色
+ * @param font 字符
+ */
+void putfont8(char *vram, int xsize, int x, int y, char c, char *font)
+{
+    int i;
+    char *p, d;
+    for (i = 0; i < 16; ++i) {
+        p = vram + (y + i) * xsize + x; // 起始坐标[y+i, x]
+        d = font[i];
+        if ((d & 0x80)) p[0] = c;
+        if ((d & 0x40)) p[1] = c;
+        if ((d & 0x20)) p[2] = c;
+        if ((d & 0x10)) p[3] = c;
+        if ((d & 0x08)) p[4] = c;
+        if ((d & 0x04)) p[5] = c;
+        if ((d & 0x02)) p[6] = c;
+        if ((d & 0x01)) p[7] = c;
+    }
 }
