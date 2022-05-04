@@ -9,7 +9,7 @@ void io_store_eflags(int eflags);
 void init_palette(void);
 void set_palette(int start, int end, unsigned char *rgb);
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1);
-void init_screen(char *vram, int x, int y);
+void init_screen8(char *vram, int x, int y);
 
 #define COL8_000000     0
 #define COL8_FF0000     1
@@ -41,15 +41,17 @@ struct BOOTINFO {
 void HariMain(void)
 {
     struct BOOTINFO *binfo = (struct BOOTINFO *)0x0ff0;
-    char s[40];
+    char s[40], mcursor[256];
+    int mx, my;
 
     init_palette();
-    init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 10, 10, COL8_FFFFFF, "ABC 123");
-    putfonts8_asc(binfo->vram, binfo->scrnx, 31, 31, COL8_000000, "Haribote OS."); // 作为阴影
-    putfonts8_asc(binfo->vram, binfo->scrnx, 30, 30, COL8_FFFFFF, "Haribote OS."); // 作为原字
-    sprintf(s, "scrnx = %d", binfo->scrnx);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 16, 64, COL8_FFFFFF, s);
+    init_screen8(binfo->vram, binfo->scrnx, binfo->scrny);
+    mx = (binfo->scrnx - 16) / 2;       // mid_x，16是鼠标宽度
+    my = (binfo->scrny - 28 - 16) / 2;  // mid_y，
+    init_mouse_cursor8(mcursor, COL8_008484);
+    putblock8_8(binfo->vram, binfo->scrnx, 16, 16, mx, my, mcursor, 16);
+    sprintf(s, "(%d, %d)", mx, my);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, s);
 
     for (;;) {
         io_hlt();
@@ -135,7 +137,7 @@ void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, i
  * @param x 行像素点数
  * @param y 列像素点数
  */
-void init_screen(char *vram, int x, int y)
+void init_screen8(char *vram, int x, int y)
 {
     boxfill8(vram, x, COL8_008484, 0, 0, x - 1, y - 29);
     boxfill8(vram, x, COL8_C6C6C6, 0, y - 28, x - 1, y - 28);
@@ -202,5 +204,62 @@ void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s
         // 例如访问字符A，则访问地址为 hankaku+'A'*16 开始的16个字节
         putfont8(vram, xsize, x, y, c, hankaku + *s * 16);
         x += 8;
+    }
+}
+
+void init_mouse_cursor8(char *mouse, char bc)
+{
+    // 鼠标图像(16x16)
+    static char cursor[16][16] = {
+        "**************..",
+        "*OOOOOOOOOOO*...",
+        "*OOOOOOOOOO*....",
+        "*OOOOOOOOO*.....",
+        "*OOOOOOOO*......",
+        "*OOOOOOO*.......",
+        "*OOOOOOO*.......",
+        "*OOOOOOOO*......",
+        "*OOOO**OOO*.....",
+        "*OOO*..*OOO*....",
+        "*OO*....*OOO*...",
+        "*O*......*OOO*..",
+        "**........*OOO*.",
+        "*..........*OOO*",
+        "............*OO*",
+        ".............***"
+    };
+    int i, j;
+    for (i = 0; i < 16; ++i) {
+        for (j = 0; j < 16; ++j) {
+            if (cursor[i][j] == '*')
+                mouse[i * 16 + j] = COL8_000000;
+            if (cursor[i][j] == 'O')
+                mouse[i * 16 + j] = COL8_FFFFFF;
+            if (cursor[i][j] == '.')
+                mouse[i * 16 + j] = bc;
+        }
+    }
+}
+
+/**
+ * @brief 绘制矩阵
+ *
+ * @param vram 显存起始地址
+ * @param vxsize 行像素点数
+ * @param pxsize 图形矩阵列数（x方向）
+ * @param pysize 图形矩阵行数（y方向）
+ * @param px0 横坐标起始位置
+ * @param py0 纵坐标起始位置，[px0,py0]是左上角像素点的坐标
+ * @param buf 图形矩阵地址
+ * @param bxsize 图形矩阵每行的像素数
+ */
+void putblock8_8(char *vram, int vxsize, int pxsize,
+    int pysize, int px0, int py0, char *buf, int bxsize)
+{
+    int i, j;
+    for (i = 0; i < pysize; ++i) {
+        for (j = 0; j < pxsize; ++j) {
+            vram[(py0 + i) * vxsize + (px0 + j)] = buf[i * bxsize + j];
+        }
     }
 }
