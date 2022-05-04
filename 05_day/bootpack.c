@@ -46,7 +46,9 @@ void HariMain(void)
 
     init_palette();
     init_screen(binfo->vram, binfo->scrnx, binfo->scrny);
-    putfont8(binfo->vram, binfo->scrnx, 10, 10, COL8_FFFFFF, font_A);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 10, 10, COL8_FFFFFF, "ABC 123");
+    putfonts8_asc(binfo->vram, binfo->scrnx, 31, 31, COL8_000000, "Haribote OS."); // 作为阴影
+    putfonts8_asc(binfo->vram, binfo->scrnx, 30, 30, COL8_FFFFFF, "Haribote OS."); // 作为原字
 
     for (;;) {
         io_hlt();
@@ -178,5 +180,26 @@ void putfont8(char *vram, int xsize, int x, int y, char c, char *font)
         if ((d & 0x04)) p[5] = c;
         if ((d & 0x02)) p[6] = c;
         if ((d & 0x01)) p[7] = c;
+    }
+}
+
+/**
+ * @brief 显示ASCII码字符串
+ *
+ * @param vram 显存起始地址
+ * @param xsize 行像素点数
+ * @param x 起始位置x
+ * @param y 起始位置y，[x,y]是字符左上角像素点的坐标
+ * @param c 颜色
+ * @param s 待显示的字符串
+ */
+void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s)
+{
+    extern char hankaku[4096];
+    for (; *s != '\0'; ++s) {
+        // hankaku中共有256个字符，每个字符占用16字节
+        // 例如访问字符A，则访问地址为 hankaku+'A'*16 开始的16个字节
+        putfont8(vram, xsize, x, y, c, hankaku + *s * 16);
+        x += 8;
     }
 }
