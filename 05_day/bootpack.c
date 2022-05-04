@@ -10,6 +10,9 @@ void init_palette(void);
 void set_palette(int start, int end, unsigned char *rgb);
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1);
 void init_screen8(char *vram, int x, int y);
+void init_mouse_cursor8(char *mouse, char bc);
+void putblock8_8(char *vram, int vxsize, int pxsize,
+    int pysize, int px0, int py0, char *buf, int bxsize);
 
 #define COL8_000000     0
 #define COL8_FF0000     1
@@ -207,6 +210,12 @@ void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s
     }
 }
 
+/**
+ * @brief 初始化鼠标图形数组
+ *
+ * @param mouse 图像保存地址
+ * @param bc 背景色
+ */
 void init_mouse_cursor8(char *mouse, char bc)
 {
     // 鼠标图像(16x16)
