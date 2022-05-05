@@ -45,6 +45,19 @@ void putblock8_8(char *vram, int vxsize, int pxsize,
 #define COL8_848484     15
 
 // dsctbl.c
+/**
+ * @brief 描述段，64位，包含32位段基址，20位段上限，12位段属性
+ *
+ * @param base_low/mid/high 将基址拆分为low(2字节) mid(1字节) high(1字节)以兼容80286机器
+ * @param limit_low 2字节，存储段上限的低16位
+ * @param limit_high 1字节，但被拆分为2个4位，低4位存储段上限的高4位
+ *                   高4位存放段属性的高4位，这4位段属性由GD00构成
+ *                   G表示G bit G=1:段上限的单位为页(page)，1页=4KB，因此20位x4KB最多表示4G的地址空间
+ *                              G=0:段上限的单位字节(Byte)，因此20位最多表示1MB的地址空间
+ *                   D表示段的模式 D=0:16位模式 D=1:32位模式
+ * @param access_right 段属性的低8位，主要具有以下值
+ *                     0x00(未使用) 0x92(系统专用RW) 0x9a(系统专用RX) 0xf2(应用程序用RW) 0xfa(应用程序用RX)
+ */
 struct SEGMENT_DESCRIPTOR {
     short limit_low, base_low;
     char base_mid, access_right;

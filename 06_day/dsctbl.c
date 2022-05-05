@@ -40,15 +40,13 @@ void init_gdtidt(void)
  */
 void set_segmdesc(struct SEGMENT_DESCRIPTOR *sd, unsigned int limit, int base, int ar)
 {
-    if (limit > 0xfffff) {
-        ar |= 0x8000;  // G_bit= 1
-        limit /= 0x1000;
+    if (limit > 0xfffff) {  // 段上限大于20位能表示的范围
+        ar |= 0x8000;       // G_bit=1，即设置段上限单位为页
+        limit /= 0x1000;    // 1页=4KB=0x1000B，因此将上限比例缩小
     }
     sd->limit_low = limit & 0xffff;
-    // todo: 为何不是 (limit >> 16) & 0xff
     sd->limit_high = ((limit >> 16) & 0x0f) | ((ar >> 8) & 0xf0);
     sd->base_low = base & 0xffff;
-    // todo: 为何不直接删除base_mid，然后sd->base_high = (base >> 16) & 0xffff;
     sd->base_mid = (base >> 16) & 0xff;
     sd->base_high = (base >> 24) & 0xff;
     sd->access_right = ar & 0xff;
