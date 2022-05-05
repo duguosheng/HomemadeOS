@@ -10,8 +10,8 @@ void init_gdtidt(void)
     struct GATE_DESCRIPTOR *idt = (struct GATE_DESCRIPTOR *)ADR_IDT;
     int i;
 
-    // 初始化GDT，段号范围为0~8191
-    for (i = 0; i < LIMIT_GDT; ++i) {
+    // 初始化GDT，GDT长度为上界+1=65535+1，一个GDT条目为8字节，因此(LIMIT_GDT+1)/8
+    for (i = 0; i < (LIMIT_GDT + 1) / 8; ++i) {
         // 指针的加法隐含了乘法运算
         // 将GDT所有条目置为0（上界，基址，权限）
         set_segmdesc(gdt + i, 0, 0, 0);
@@ -24,7 +24,7 @@ void init_gdtidt(void)
     load_gdtr(LIMIT_GDT, ADR_GDT);
 
     // 初始化IDT
-    for (i = 0; i < LIMIT_IDT; i++) {
+    for (i = 0; i < (LIMIT_IDT + 1) / 8; i++) {
         set_gatedesc(idt + i, 0, 0, 0);
     }
     load_idtr(LIMIT_IDT, ADR_IDT);
@@ -67,5 +67,4 @@ void set_gatedesc(struct GATE_DESCRIPTOR *gd, int offset, int selector, int ar)
     gd->dw_count = (ar >> 8) & 0xff;
     gd->access_right = ar & 0xff;
     gd->offset_high = (offset >> 16) & 0xffff;
-    return;
 }

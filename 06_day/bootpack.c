@@ -11,6 +11,9 @@ void HariMain(void)
     char s[40], mcursor[256];
     int mx, my;
 
+    init_gdtidt();
+    init_pic();
+
     init_palette();
     init_screen8(binfo->vram, binfo->scrnx, binfo->scrny);
     mx = (binfo->scrnx - 16) / 2;       // mid_x，16是鼠标宽度
