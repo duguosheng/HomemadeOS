@@ -1,47 +1,33 @@
-struct SEGMENT_DESCRIPTOR {
-    short limit_low, base_low;
-    char base_mid, access_right;
-    char limit_high, base_high;
-};
+// GTT、IDT等描述表相关
 
-struct GATE_DESCRIPTOR {
-    short offset_low, selector;
-    char dw_count, access_right;
-    short offset_high;
-};
-
-void init_gdtidt(void);
-void set_segmdesc(struct SEGMENT_DESCRIPTOR *sd, unsigned int limit, int base, int ar);
-void set_gatedesc(struct GATE_DESCRIPTOR *gd, int offset, int selector, int ar);
-void load_gdtr(int limit, int addr);
-void load_idtr(int limit, int addr);
+#include "bootpack.h"
 
 void init_gdtidt(void)
 {
     // 设置GDT起始地址为0x00270000
-    struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *)0x00270000;
+    struct SEGMENT_DESCRIPTOR *gdt = (struct SEGMENT_DESCRIPTOR *)ADR_GDT;
     // 设置IDT起始地址为0x0026f800
-    struct GATE_DESCRIPTOR *idt = (struct GATE_DESCRIPTOR *)0x0026f800;
+    struct GATE_DESCRIPTOR *idt = (struct GATE_DESCRIPTOR *)ADR_IDT;
     int i;
 
     // 初始化GDT，段号范围为0~8191
-    for (i = 0; i < 8192; ++i) {
+    for (i = 0; i < LIMIT_GDT; ++i) {
         // 指针的加法隐含了乘法运算
         // 将GDT所有条目置为0（上界，基址，权限）
         set_segmdesc(gdt + i, 0, 0, 0);
     }
     // 设置段号1，上界是4GB-1，基址为0，即CPU能管理的全部内存
-    set_segmdesc(gdt + 1, 0xffffffff, 0x00000000, 0x4092);
+    set_segmdesc(gdt + 1, 0xffffffff, 0x00000000, AR_DATA32_RW);
     // 设置段号2，上界是512KB-1，基址0x00280000，是为bootpack.hrb准备的
-    set_segmdesc(gdt + 2, 0x0007ffff, 0x00280000, 0x409a);
+    set_segmdesc(gdt + 2, LIMIT_BOTPAK, ADR_BOTPAK, AR_CODE32_ER);
     // 使用汇编向GDTR写值（因为C语言不能操作GDTR）
-    load_gdtr(0xffff, 0x00270000);
+    load_gdtr(LIMIT_GDT, ADR_GDT);
 
     // 初始化IDT
-    for (i = 0; i < 256; i++) {
+    for (i = 0; i < LIMIT_IDT; i++) {
         set_gatedesc(idt + i, 0, 0, 0);
     }
-    load_idtr(0x7ff, 0x0026f800);
+    load_idtr(LIMIT_IDT, ADR_IDT);
 }
 
 /**
