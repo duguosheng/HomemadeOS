@@ -11,6 +11,9 @@
 *.hrb
 *.bin
 
+.vscode/
+.idea/
+
 !helloos.img
 !helloos.nas
 !asmhead.nas
