@@ -28,6 +28,13 @@ void init_gdtidt(void)
         set_gatedesc(idt + i, 0, 0, 0);
     }
     load_idtr(LIMIT_IDT, ADR_IDT);
+
+    // 设置IDT
+    // 设置INT 0x21, 中断响应函数地址为(int)asm_inthandler21，段号为2，中断处理的权限设定
+    // 段号2在上面的程序中进行了设定，段号*8（即左移3位）是因为低3位具有其他含义，因此低3位必须为0
+    set_gatedesc(idt + 0x21, (int)asm_inthandler21, 2 * 8, AR_INTGATE32);
+    set_gatedesc(idt + 0x27, (int)asm_inthandler27, 2 * 8, AR_INTGATE32);
+    set_gatedesc(idt + 0x2c, (int)asm_inthandler2c, 2 * 8, AR_INTGATE32);
 }
 
 /**
@@ -53,12 +60,12 @@ void set_segmdesc(struct SEGMENT_DESCRIPTOR *sd, unsigned int limit, int base, i
 }
 
 /**
- * @brief 设置GDT参数
+ * @brief 设置IDT参数
  *
- * @param gd GDT条目地址
- * @param offset
- * @param selector
- * @param ar
+ * @param gd IDT条目地址
+ * @param offset 中断响应函数地址
+ * @param selector 段号
+ * @param ar 权限
  */
 void set_gatedesc(struct GATE_DESCRIPTOR *gd, int offset, int selector, int ar)
 {

@@ -17,3 +17,45 @@ void init_pic(void)
     io_out8(PIC0_IMR, 0xfb);    // 11111011 禁用PIC1以外的所有中断
     io_out8(PIC1_IMR, 0xff);    // 禁用所有中断
 }
+
+/**
+ * @brief 来自PS/2键盘的中断
+ *
+ * @param esp
+ */
+void inthandler21(int *esp)
+{
+    struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
+    boxfill8(binfo->vram, binfo->scrnx, COL8_000000, 0, 0, 32 * 8 - 1, 15);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, "INT 21 (IRQ-1) : PS/2 keyboard");
+    for (;;) {
+        io_hlt();
+    }
+}
+
+/**
+ * @brief 来自PS/2鼠标的中断
+ *
+ * @param esp
+ */
+void inthandler2c(int *esp)
+{
+    struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
+    boxfill8(binfo->vram, binfo->scrnx, COL8_000000, 0, 0, 32 * 8 - 1, 15);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, "INT 2C (IRQ-12) : PS/2 mouse");
+    for (;;) {
+        io_hlt();
+    }
+}
+
+/**
+ * @brief 处理IRQ7中断
+ *        对于部分机器，随着PIC初始化会产生一次IRQ7中断
+ *        必须对该中断处理程序执行STI（设置中断标志位），否则系统启动会失败
+ *
+ * @param esp
+ */
+void inthandler27(int *esp)
+{
+    io_out8(PIC0_OCW2, 0x67); /* 通知PIC：IRQ7处理完成，参见7-1节 */
+}
