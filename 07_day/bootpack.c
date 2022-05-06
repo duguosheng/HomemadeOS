@@ -11,7 +11,7 @@ void HariMain(void)
 {
     struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
     char s[40], mcursor[256];
-    int mx, my, i;
+    int mx, my, i, j;
 
     init_gdtidt();
     init_pic();
@@ -31,12 +31,16 @@ void HariMain(void)
 
     for (;;) {
         io_cli();   // 禁用中断
-        if (keybuf.flag == 0) {
+        if (keybuf.next == 0) {
             io_stihlt();
         } else {
-            i = keybuf.data;
-            keybuf.flag = 0;    // 清除标志位
-            io_sti();           // 恢复中断
+            i = keybuf.data[0];
+            keybuf.next--;  // 取出一个元素
+            // 将所有元素前移
+            for (j = 0; j < keybuf.next; ++j) {
+                keybuf.data[j] = keybuf.data[j + 1];
+            }
+            io_sti();       // 恢复中断
             sprintf(s, "%02X", i);
             boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
             putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, s);

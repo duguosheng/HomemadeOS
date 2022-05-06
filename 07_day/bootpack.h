@@ -127,8 +127,8 @@ void set_gatedesc(struct GATE_DESCRIPTOR *gd, int offset, int selector, int ar);
 
 // int.c
 struct KEYBUF {
-    unsigned char data; // 按键编码
-    unsigned char flag; // flag=0:缓冲区为空 flag=1:缓冲区有数据
+    unsigned char data[32]; // 按键编码
+    int next;
 };
 void init_pic(void);
 void inthandler21(int *esp);
