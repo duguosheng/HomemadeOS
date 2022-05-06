@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 extern struct FIFO8 keyfifo;
+extern struct FIFO8 mousefifo;
 void enable_mouse(void);
 void init_keyboard(void);
 
@@ -12,14 +13,15 @@ void init_keyboard(void);
 void HariMain(void)
 {
     struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
-    char s[40], mcursor[256], keybuf[32];
-    int mx, my, i, j;
+    char s[40], mcursor[256], keybuf[32], mousebuf[128];
+    int mx, my, i;
 
     init_gdtidt();
     init_pic();
     io_sti();
 
     fifo8_init(&keyfifo, 32, keybuf);
+    fifo8_init(&mousefifo, 128, mousebuf);
     io_out8(PIC0_IMR, 0xf9); // 键盘: IRQ1(INT 0x21)  PIC0允许PIC1和键盘的中断(11111001)
     io_out8(PIC1_IMR, 0xef); // 鼠标: IRQ12(INT 0x2c) PIC1允许鼠标中断(11101111)
 
@@ -38,14 +40,22 @@ void HariMain(void)
 
     for (;;) {
         io_cli();           // 禁用中断
-        if (fifo8_status(&keyfifo) == 0) {
+        if (fifo8_status(&keyfifo) + fifo8_status(&mousefifo) == 0) {
             io_stihlt();    // 启用中断，并使CPU暂停
         } else {
-            i = fifo8_get(&keyfifo);
-            io_sti();       // 启用中断
-            sprintf(s, "%02X", i);
-            boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
-            putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, s);
+            if (fifo8_status(&keyfifo) != 0) {
+                i = fifo8_get(&keyfifo);
+                io_sti();       // 启用中断
+                sprintf(s, "%02X", i);
+                boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
+                putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, s);
+            } else if (fifo8_status(&mousefifo) != 0) {
+                i = fifo8_get(&mousefifo);
+                io_sti();       // 启用中断
+                sprintf(s, "%02X", i);
+                boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 47, 31);
+                putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, s);
+            }
         }
     }
 }
@@ -100,5 +110,5 @@ void enable_mouse(void)
     io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
     wait_KBC_sendready();
     io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
-    // 顺利的话,键盘控制其会返送回ACK(0xfa)
+    // 顺利的话,键盘控制器会返送回ACK(0xfa)
 }
