@@ -57,6 +57,20 @@ void asm_inthandler27(void);
 // PIC响应中断
 void asm_inthandler2c(void);
 
+/* fifo.c */
+struct FIFO8 {
+    unsigned char *buf; // 缓冲区地址
+    int p;              // 下一个写入位置的下标
+    int q;              // 下一个读出位置的下标
+    int size;           // 缓冲区大小
+    int free;           // 缓冲区空闲空间大小
+    int flags;          // 标志位
+};
+void fifo8_init(struct FIFO8 *fifo, int size, unsigned char *buf);
+int fifo8_put(struct FIFO8 *fifo, unsigned char data);
+int fifo8_get(struct FIFO8 *fifo);
+int fifo8_status(struct FIFO8 *fifo);
+
 // graphic.c
 void init_palette(void);
 void set_palette(int start, int end, unsigned char *rgb);
@@ -126,12 +140,6 @@ void set_gatedesc(struct GATE_DESCRIPTOR *gd, int offset, int selector, int ar);
 #define AR_INTGATE32	0x008e  // 用于中断处理的有效设定
 
 // int.c
-struct KEYBUF {
-    unsigned char data[32]; // 按键编码
-    int next_r;             // 下一个读位置的下标
-    int next_w;             // 下一个写位置的下标
-    int len;                // FIFO长度
-};
 void init_pic(void);
 void inthandler21(int *esp);
 void inthandler27(int *esp);

@@ -22,7 +22,7 @@ void init_pic(void)
 
 #define PORT_KEYDAT     0x0060  // 编号为0x0060的设备是键盘
 
-struct KEYBUF keybuf;
+struct FIFO8 keyfifo;
 
 /**
  * @brief 来自PS/2键盘的中断(IRQ1, INT 0x21)
@@ -31,23 +31,14 @@ struct KEYBUF keybuf;
  */
 void inthandler21(int *esp)
 {
-    struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
-    unsigned char data, s[4];
+    unsigned char data;
     // 通知PIC: 收到IRQ1的中断(IRQn对应0x60+n)
     // 执行这句话之后，PIC继续时刻监视IRQ1中断是否发生。
     // 如果忘记了执行这句话，PIC就不再监视IRQ1中断，不管下次由键盘输入什么信息，系统都感知不到了
     io_out8(PIC0_OCW2, 0x61);
     // 从键盘处获取8位的按键编码
     data = io_in8(PORT_KEYDAT);
-
-    if (keybuf.len < 32) {
-        keybuf.data[keybuf.next_w] = data;
-        keybuf.len++;
-        keybuf.next_w++;
-        if (keybuf.next_w == 32) {
-            keybuf.next_w = 0;
-        }
-    }
+    fifo8_put(&keyfifo, data);
 }
 
 /**

@@ -1,5 +1,5 @@
 OBJS_BOOTPACK = bootpack.obj naskfunc.obj hankaku.obj graphic.obj dsctbl.obj \
-		int.obj
+		int.obj fifo.obj
 
 TOOLPATH = ../z_tools/
 INCPATH  = ../z_tools/haribote/
@@ -19,12 +19,10 @@ COPY     = copy
 DEL      = del
 
 # 默认动作
-
 default :
 	$(MAKE) img
 
 # 文件生成规则
-
 ipl10.bin : ipl10.nas Makefile
 	$(NASK) ipl10.nas ipl10.bin ipl10.lst
 
@@ -54,7 +52,6 @@ haribote.img : ipl10.bin haribote.sys Makefile
 		copy from:haribote.sys to:@: \
 		imgout:haribote.img
 
-
 # 一般规则
 %.gas : %.c
 	$(CC1) -o $*.gas $*.c
@@ -82,11 +79,7 @@ install :
 clean :
 	-$(DEL) *.bin
 	-$(DEL) *.lst
-	-$(DEL) *.gas
 	-$(DEL) *.obj
-	-$(DEL) bootpack.nas
-	-$(DEL) graphic.nas
-	-$(DEL) dsctbl.nas
 	-$(DEL) bootpack.map
 	-$(DEL) bootpack.bim
 	-$(DEL) bootpack.hrb
