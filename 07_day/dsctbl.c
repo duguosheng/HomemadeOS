@@ -2,6 +2,10 @@
 
 #include "bootpack.h"
 
+/**
+ * @brief 初始化GDT IDT
+ *
+ */
 void init_gdtidt(void)
 {
     // 设置GDT起始地址为0x00270000

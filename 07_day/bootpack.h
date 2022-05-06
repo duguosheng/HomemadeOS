@@ -21,14 +21,14 @@ void io_stihlt(void);
 /**
  * @brief 从外部设备读入8位数据
  *
- * @param port 地址编号
+ * @param port IO端口编号
  * @return int 读取到的数值
  */
 int  io_in8(int port);
 /**
  * @brief 向外部设备写入8位数据
  *
- * @param port 地址编号
+ * @param port IO端口编号
  * @param data 待写入数据
  */
 void io_out8(int port, int data);
