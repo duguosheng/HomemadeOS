@@ -4,31 +4,66 @@ struct BOOTINFO {       // 0x0ff0-0x0fff
     char vmode;         // 显卡模式彩色位数
     char reserve;
     short scrnx, scrny; // 屏幕分辨率
-    char *vram;
+    char *vram;         // 显存地址
 };
 
 #define ADR_BOOTINFO	0x00000ff0
 
 // naskfunc.nas
+// 系统进入暂停状态
 void io_hlt(void);
+// 禁用外部中断                
 void io_cli(void);
+// 允许外部中断             
 void io_sti(void);
+// 允许外部中断，然后系统进入暂停状态
+void io_stihlt(void);
+/**
+ * @brief 从外部设备读入8位数据
+ *
+ * @param port 地址编号
+ * @return int 读取到的数值
+ */
 int  io_in8(int port);
+/**
+ * @brief 向外部设备写入8位数据
+ *
+ * @param port 地址编号
+ * @param data 待写入数据
+ */
 void io_out8(int port, int data);
+// 获取EFLAGS寄存器状态
 int  io_load_eflags(void);
+// 设置EFLAGS寄存器状态
 void io_store_eflags(int eflags);
+/**
+ * @brief 设置GDTR寄存器
+ *
+ * @param limit 地址上界（长度-1）
+ * @param addr 基址
+ */
 void load_gdtr(int limit, int addr);
+/**
+ * @brief 设置IDTR寄存器
+ *
+ * @param limit 地址上界（长度-1）
+ * @param addr 基址
+ */
 void load_idtr(int limit, int addr);
+// 键盘中断处理函数
 void asm_inthandler21(void);
+// 鼠标中断处理函数
 void asm_inthandler27(void);
+// PIC响应中断
 void asm_inthandler2c(void);
 
 // graphic.c
-void io_store_eflags(int eflags);
 void init_palette(void);
 void set_palette(int start, int end, unsigned char *rgb);
 void boxfill8(unsigned char *vram, int xsize, unsigned char c, int x0, int y0, int x1, int y1);
 void init_screen8(char *vram, int x, int y);
+void putfont8(char *vram, int xsize, int x, int y, char c, char *font);
+void putfonts8_asc(char *vram, int xsize, int x, int y, char c, unsigned char *s);
 void init_mouse_cursor8(char *mouse, char bc);
 void putblock8_8(char *vram, int vxsize, int pxsize,
     int pysize, int px0, int py0, char *buf, int bxsize);
@@ -91,7 +126,14 @@ void set_gatedesc(struct GATE_DESCRIPTOR *gd, int offset, int selector, int ar);
 #define AR_INTGATE32	0x008e  // 用于中断处理的有效设定
 
 // int.c
+struct KEYBUF {
+    unsigned char data; // 按键编码
+    unsigned char flag; // flag=0:缓冲区为空 flag=1:缓冲区有数据
+};
 void init_pic(void);
+void inthandler21(int *esp);
+void inthandler27(int *esp);
+void inthandler2c(int *esp);
 #define PIC0_ICW1		0x0020  // Initial Control Word，初始化控制数据
 #define PIC0_OCW2		0x0020
 #define PIC0_IMR		0x0021  // Interrupt Mask Register，中断屏蔽寄存器，8位对应8路IRQ，1屏蔽，0使能

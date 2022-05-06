@@ -22,6 +22,8 @@ void init_pic(void)
 
 #define PORT_KEYDAT     0x0060  // 编号为0x0060的设备是键盘
 
+struct KEYBUF keybuf;
+
 /**
  * @brief 来自PS/2键盘的中断(IRQ1, INT 0x21)
  *
@@ -38,9 +40,10 @@ void inthandler21(int *esp)
     // 从键盘处获取8位的按键编码
     data = io_in8(PORT_KEYDAT);
 
-    sprintf(s, "%02X", data);
-    boxfill8(binfo->vram, binfo->scrnx, COL8_000000, 0, 16, 15, 31);
-    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, s);
+    if (keybuf.flag == 0) {
+        keybuf.data = data;
+        keybuf.flag = 1;
+    }
 }
 
 /**

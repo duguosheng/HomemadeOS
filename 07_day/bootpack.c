@@ -1,6 +1,8 @@
 #include "bootpack.h"
 #include <stdio.h>
 
+extern struct KEYBUF keybuf;
+
 /**
  * @brief 程序入口点
  *
@@ -9,11 +11,14 @@ void HariMain(void)
 {
     struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
     char s[40], mcursor[256];
-    int mx, my;
+    int mx, my, i;
 
     init_gdtidt();
     init_pic();
     io_sti();
+
+    io_out8(PIC0_IMR, 0xf9); // 键盘: IRQ1(INT 0x21)  PIC0允许PIC1和键盘的中断(11111001)
+    io_out8(PIC1_IMR, 0xef); // 鼠标: IRQ12(INT 0x2c) PIC1允许鼠标中断(11101111)
 
     init_palette();
     init_screen8(binfo->vram, binfo->scrnx, binfo->scrny);
@@ -24,10 +29,17 @@ void HariMain(void)
     sprintf(s, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, s);
 
-    io_out8(PIC0_IMR, 0xf9); // 键盘: IRQ1(INT 0x21)  PIC0允许PIC1和键盘的中断(11111001)
-    io_out8(PIC1_IMR, 0xef); // 鼠标: IRQ12(INT 0x2c) PIC1允许鼠标中断(11101111)
-
     for (;;) {
-        io_hlt();
+        io_cli();   // 禁用中断
+        if (keybuf.flag == 0) {
+            io_stihlt();
+        } else {
+            i = keybuf.data;
+            keybuf.flag = 0;    // 清除标志位
+            io_sti();           // 恢复中断
+            sprintf(s, "%02X", i);
+            boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 16, 15, 31);
+            putfonts8_asc(binfo->vram, binfo->scrnx, 0, 16, COL8_FFFFFF, s);
+        }
     }
 }
