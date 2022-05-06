@@ -128,7 +128,9 @@ void set_gatedesc(struct GATE_DESCRIPTOR *gd, int offset, int selector, int ar);
 // int.c
 struct KEYBUF {
     unsigned char data[32]; // 按键编码
-    int next;
+    int next_r;             // 下一个读位置的下标
+    int next_w;             // 下一个写位置的下标
+    int len;                // FIFO长度
 };
 void init_pic(void);
 void inthandler21(int *esp);

@@ -31,14 +31,14 @@ void HariMain(void)
 
     for (;;) {
         io_cli();   // 禁用中断
-        if (keybuf.next == 0) {
+        if (keybuf.len == 0) {
             io_stihlt();
         } else {
-            i = keybuf.data[0];
-            keybuf.next--;  // 取出一个元素
-            // 将所有元素前移
-            for (j = 0; j < keybuf.next; ++j) {
-                keybuf.data[j] = keybuf.data[j + 1];
+            i = keybuf.data[keybuf.next_r];
+            keybuf.len--;  // 取出一个元素
+            keybuf.next_r++;
+            if (keybuf.next_r == 32) {
+                keybuf.next_r = 0;
             }
             io_sti();       // 恢复中断
             sprintf(s, "%02X", i);

@@ -40,9 +40,13 @@ void inthandler21(int *esp)
     // 从键盘处获取8位的按键编码
     data = io_in8(PORT_KEYDAT);
 
-    if (keybuf.next < 32) {
-        keybuf.data[keybuf.next] = data;
-        keybuf.next++;
+    if (keybuf.len < 32) {
+        keybuf.data[keybuf.next_w] = data;
+        keybuf.len++;
+        keybuf.next_w++;
+        if (keybuf.next_w == 32) {
+            keybuf.next_w = 0;
+        }
     }
 }
 
