@@ -9,6 +9,9 @@ struct MOUSE_DEC {  // Mouse Decode
     // 2: 等待接收第2个字节
     // 3: 等待接收第3个字节
     unsigned char phase;
+    int x;      // 鼠标x坐标
+    int y;      // 鼠标y坐标
+    int btn;    // 鼠标按键状态
 };
 
 extern struct FIFO8 keyfifo;
@@ -66,8 +69,18 @@ void HariMain(void)
                 io_sti();       // 启用中断
                 if (mouse_decode(&mdec, i) == 1) {
                     // 3字节一组显示
-                    sprintf(s, "%02X %02X %02X", mdec.buf[0], mdec.buf[1], mdec.buf[2]);
-                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32 + 8 * 8 - 1, 31);
+                    sprintf(s, "[lcr %4d %4d]", mdec.x, mdec.y);
+                    // 如果鼠标指定的按键按下，则将s中字符改为大写
+                    if ((mdec.btn & 0x01) != 0) {
+                        s[1] = 'L';
+                    }
+                    if ((mdec.btn & 0x02) != 0) {
+                        s[3] = 'R';
+                    }
+                    if ((mdec.btn & 0x04) != 0) {
+                        s[2] = 'C';
+                    }
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32 + 15 * 8 - 1, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, s);
                 }
             }
@@ -112,8 +125,10 @@ void init_keyboard(void)
     io_out8(PORT_KEYDAT, KBC_MODE);
 }
 
-#define KEYCMD_SENDTO_MOUSE		0xd4        // 将下一个字节写入PS/2第2端口（即鼠标）输入缓冲区
-#define MOUSECMD_ENABLE			0xf4
+// 鼠标参考网址https://wiki.osdev.org/PS/2_Mouse
+
+#define KEYCMD_SENDTO_MOUSE		0xd4    // 将下一个字节写入PS/2第2端口（即鼠标）输入缓冲区
+#define MOUSECMD_ENABLE			0xf4    // 启用数据报告
 
 /**
  * @brief 使能鼠标
@@ -139,21 +154,46 @@ void enable_mouse(struct MOUSE_DEC *mdec)
 int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat)
 {
     if (mdec->phase == 0) {
+        // 等待鼠标初始化完成返回0xfa的阶段
         if (dat == 0xfa) {
             mdec->phase = 1;
         }
         return 0;
     } else if (mdec->phase == 1) {
-        mdec->buf[0] = dat;
-        mdec->phase = 2;
+        // 等待鼠标第1字节的阶段
+        // 0xc8=11001000
+        // 在鼠标返回的第1字节中，0xc8中三个1从左到右的含义为：
+        // 第1个1：y坐标溢出；第2个1：x坐标溢出；第3个1：必须永远为1
+        if ((dat & 0xc8) == 0x08) {
+            // 第1字节正确（无溢出且第3位为1）
+            mdec->buf[0] = dat;
+            mdec->phase = 2;
+        }
         return 0;
     } else if (mdec->phase == 2) {
+        // 等待鼠标第2字节的阶段
         mdec->buf[1] = dat;
         mdec->phase = 3;
         return 0;
     } else if (mdec->phase == 3) {
+        // 等待鼠标第3字节的阶段
         mdec->buf[2] = dat;
         mdec->phase = 1;
+        // 第1字节后3位为按键状态（依次为中键 右键 左键）
+        mdec->btn = mdec->buf[0] & 0x07;
+        // 第2字节存储x移动坐标（相对位置）
+        mdec->x = mdec->buf[1];
+        // 第3字节存储y移动坐标（相对位置）
+        mdec->y = mdec->buf[2];
+        // 第1字节第4位为x符号位
+        if ((mdec->buf[0] & 0x10) != 0) {
+            mdec->x |= 0xffffff00;
+        }
+        // 第1字节第5位为y符号位
+        if ((mdec->buf[0] & 0x20) != 0) {
+            mdec->y |= 0xffffff00;
+        }
+        mdec->y = -mdec->y;     // 鼠标的y方向与画面符号相反
         return 1;
     }
     return -1;
