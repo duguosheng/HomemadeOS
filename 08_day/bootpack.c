@@ -1,10 +1,21 @@
 #include "bootpack.h"
 #include <stdio.h>
 
+struct MOUSE_DEC {  // Mouse Decode
+    // 鼠标发来的数据3个字节一组
+    unsigned char buf[3];
+    // 0: 等待初始化完成（即等待鼠标返回0xfa）
+    // 1: 等待接收第1个字节，鼠标发来的数据3字节一组
+    // 2: 等待接收第2个字节
+    // 3: 等待接收第3个字节
+    unsigned char phase;
+};
+
 extern struct FIFO8 keyfifo;
 extern struct FIFO8 mousefifo;
-void enable_mouse(void);
+void enable_mouse(struct MOUSE_DEC *mdec);
 void init_keyboard(void);
+int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat);
 
 /**
  * @brief 程序入口点
@@ -15,12 +26,7 @@ void HariMain(void)
     struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
     char s[40], mcursor[256], keybuf[32], mousebuf[128];
     int mx, my, i;
-    unsigned char mouse_dbuf[3];
-    // 0: 等待初始化完成（即等待鼠标返回0xfa）
-    // 1: 等待接收第1个字节，鼠标发来的数据3字节一组
-    // 2: 等待接收第2个字节
-    // 3: 等待接收第3个字节
-    unsigned char mouse_phase;
+    struct MOUSE_DEC mdec;
 
     init_gdtidt();
     init_pic();
@@ -42,8 +48,7 @@ void HariMain(void)
     sprintf(s, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, s);
 
-    enable_mouse();
-    mouse_phase = 0;
+    enable_mouse(&mdec);
 
     for (;;) {
         io_cli();           // 禁用中断
@@ -59,21 +64,9 @@ void HariMain(void)
             } else if (fifo8_status(&mousefifo) != 0) {
                 i = fifo8_get(&mousefifo);
                 io_sti();       // 启用中断
-                if (mouse_phase == 0) {
-                    if (i == 0xfa) {
-                        mouse_phase = 1;
-                    }
-                } else if (mouse_phase == 1) {
-                    mouse_dbuf[0] = i;
-                    mouse_phase = 2;
-                } else if (mouse_phase == 2) {
-                    mouse_dbuf[1] = i;
-                    mouse_phase = 3;
-                } else if (mouse_phase == 3) {
-                    mouse_dbuf[2] = i;
-                    mouse_phase = 1;
+                if (mouse_decode(&mdec, i) == 1) {
                     // 3字节一组显示
-                    sprintf(s, "%02X %02X %02X", mouse_dbuf[0], mouse_dbuf[1], mouse_dbuf[2]);
+                    sprintf(s, "%02X %02X %02X", mdec.buf[0], mdec.buf[1], mdec.buf[2]);
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32 + 8 * 8 - 1, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, s);
                 }
@@ -126,11 +119,42 @@ void init_keyboard(void)
  * @brief 使能鼠标
  *
  */
-void enable_mouse(void)
+void enable_mouse(struct MOUSE_DEC *mdec)
 {
     wait_KBC_sendready();
     io_out8(PORT_KEYCMD, KEYCMD_SENDTO_MOUSE);
     wait_KBC_sendready();
     io_out8(PORT_KEYDAT, MOUSECMD_ENABLE);
     // 顺利的话,键盘控制器会返送回ACK(0xfa)
+    mdec->phase = 0;
+}
+
+/**
+ * @brief 解析鼠标返回的数据
+ *
+ * @param mdec 数据存储位置
+ * @param dat 鼠标发送来的数据
+ * @return int -1：错误 0：未达到3字节 1：数据装填完成
+ */
+int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat)
+{
+    if (mdec->phase == 0) {
+        if (dat == 0xfa) {
+            mdec->phase = 1;
+        }
+        return 0;
+    } else if (mdec->phase == 1) {
+        mdec->buf[0] = dat;
+        mdec->phase = 2;
+        return 0;
+    } else if (mdec->phase == 2) {
+        mdec->buf[1] = dat;
+        mdec->phase = 3;
+        return 0;
+    } else if (mdec->phase == 3) {
+        mdec->buf[2] = dat;
+        mdec->phase = 1;
+        return 1;
+    }
+    return -1;
 }
