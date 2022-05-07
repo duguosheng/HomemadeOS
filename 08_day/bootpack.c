@@ -28,7 +28,8 @@ void HariMain(void)
 {
     struct BOOTINFO *binfo = (struct BOOTINFO *)ADR_BOOTINFO;
     char s[40], mcursor[256], keybuf[32], mousebuf[128];
-    int mx, my, i;
+    int mx, my;  // 鼠标坐标
+    int i;
     struct MOUSE_DEC mdec;
 
     init_gdtidt();
@@ -45,7 +46,7 @@ void HariMain(void)
     init_palette();
     init_screen8(binfo->vram, binfo->scrnx, binfo->scrny);
     mx = (binfo->scrnx - 16) / 2;       // mid_x，16是鼠标宽度
-    my = (binfo->scrny - 28 - 16) / 2;  // mid_y，
+    my = (binfo->scrny - 28 - 16) / 2;  // mid_y，16是鼠标宽度，28是底部横条高度
     init_mouse_cursor8(mcursor, COL8_008484);
     putblock8_8(binfo->vram, binfo->scrnx, 16, 16, mx, my, mcursor, 16);
     sprintf(s, "(%d, %d)", mx, my);
@@ -82,6 +83,27 @@ void HariMain(void)
                     }
                     boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 32, 16, 32 + 15 * 8 - 1, 31);
                     putfonts8_asc(binfo->vram, binfo->scrnx, 32, 16, COL8_FFFFFF, s);
+                    // 鼠标移动
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, mx, my, mx + 15, my + 15); // 隐藏之前的鼠标
+                    mx += mdec.x;
+                    my += mdec.y;
+                    // 边界检查
+                    if (mx < 0) {
+                        mx = 0;
+                    }
+                    if (my < 0) {
+                        my = 0;
+                    }
+                    if (mx > binfo->scrnx - 16) {
+                        mx = binfo->scrnx - 16;
+                    }
+                    if (my > binfo->scrny - 16) {
+                        my = binfo->scrny - 16;
+                    }
+                    sprintf(s, "(%3d, %3d)", mx, my);
+                    boxfill8(binfo->vram, binfo->scrnx, COL8_008484, 0, 0, 79, 15);     // 隐藏坐标，即清空之前的坐标显示
+                    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, s);     // 显示坐标，显示更新后的坐标
+                    putblock8_8(binfo->vram, binfo->scrnx, 16, 16, mx, my, mcursor, 16);// 描绘鼠标
                 }
             }
         }
@@ -187,6 +209,9 @@ int mouse_decode(struct MOUSE_DEC *mdec, unsigned char dat)
         mdec->y = mdec->buf[2];
         // 第1字节第4位为x符号位
         if ((mdec->buf[0] & 0x10) != 0) {
+            // 注意不能mdec->x=-mdec->x，因为第2字节的内容是直接以补码形式存储的（而非绝对值）
+            // 例如想要表达左移2，那么buf[0]中xxx1xxxx，buf[1]中11111110
+            // 此时需要把高位全部置为1
             mdec->x |= 0xffffff00;
         }
         // 第1字节第5位为y符号位
