@@ -60,6 +60,14 @@ void asm_inthandler21(void);
 void asm_inthandler27(void);
 // PIC响应中断
 void asm_inthandler2c(void);
+/**
+ * @brief 检查内存字节数
+ *
+ * @param start 起始地址
+ * @param end 结束地址
+ * @return unsigned int 内存字节数
+ */
+unsigned int memtest_sub(unsigned int start, unsigned int end);
 
 /* fifo.c */
 struct FIFO8 {
