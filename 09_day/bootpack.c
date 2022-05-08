@@ -1,6 +1,9 @@
 #include "bootpack.h"
 #include <stdio.h>
 
+unsigned int memtest(unsigned int start, unsigned int end);
+unsigned int memtest_sub(unsigned int start, unsigned int end);
+
 /**
  * @brief 程序入口点
  *
@@ -23,6 +26,7 @@ void HariMain(void)
     io_out8(PIC1_IMR, 0xef); // 鼠标: IRQ12(INT 0x2c) PIC1允许鼠标中断(11101111)
 
     init_keyboard();
+    enable_mouse(&mdec);
 
     init_palette();
     init_screen8(binfo->vram, binfo->scrnx, binfo->scrny);
@@ -33,7 +37,9 @@ void HariMain(void)
     sprintf(s, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, s);
 
-    enable_mouse(&mdec);
+    i = memtest(0x00400000, 0xbfffffff) / (1024 * 1024);
+    sprintf(s, "memory %dMB", i);
+    putfonts8_asc(binfo->vram, binfo->scrnx, 0, 32, COL8_FFFFFF, s);
 
     for (;;) {
         io_cli();           // 禁用中断
@@ -89,4 +95,81 @@ void HariMain(void)
             }
         }
     }
+}
+
+#define EFLAGS_AC_BIT		0x00040000
+#define CR0_CACHE_DISABLE	0x60000000
+
+/**
+ * @brief 禁用486的cache并检查内存字节数，调用memtest_sub实现
+ *
+ * @param start 起始地址
+ * @param end 结束地址
+ * @return unsigned int 内存字节数
+ */
+unsigned int memtest(unsigned int start, unsigned int end)
+{
+    char flg486 = 0;
+    unsigned int eflg, cr0, i;
+
+    // 查看CPU型号，是386还是486以上，386无AC标志位，486在第18位
+    eflg = io_load_eflags();
+    // 设置EFLAGS的AC为1
+    eflg |= EFLAGS_AC_BIT;
+    io_store_eflags(eflg);
+    eflg = io_load_eflags();
+    // 再次检测AC位，如果确实设置成功，则为486机器
+    if ((eflg & EFLAGS_AC_BIT) != 0) {
+        flg486 = 1;
+    }
+    eflg &= ~EFLAGS_AC_BIT; // 重新置AC标志为0
+    io_store_eflags(eflg);
+
+    // 禁用486中缓存
+    if (flg486 != 0) {
+        cr0 = load_cr0();
+        cr0 |= CR0_CACHE_DISABLE;
+        store_cr0(cr0);
+    }
+
+    // 实际的容量检查过程
+    i = memtest_sub(start, end);
+
+    // 恢复允许486机器使用cache
+    if (flg486 != 0) {
+        cr0 = load_cr0();
+        cr0 &= ~CR0_CACHE_DISABLE;
+        store_cr0(cr0);
+    }
+
+    return i;
+}
+
+/**
+ * @brief 检查内存字节数
+ *
+ * @param start 起始地址
+ * @param end 结束地址
+ * @return unsigned int 内存字节数
+ */
+unsigned int memtest_sub(unsigned int start, unsigned int end)
+{
+    unsigned int i, *p, old, pat0 = 0xaa55aa55, pat1 = 0x55aa55aa;
+    for (i = start; i <= end; i += 0x1000) {
+        p = (unsigned int *)(i + 0xffc);    // 检查末尾的4字节
+        old = *p;			// 先记住修改前的值
+        *p = pat0;			// 试写
+        *p ^= 0xffffffff;	// 反转
+        if (*p != pat1) {	// 检查反转结果
+        not_memory:
+            *p = old;
+            break;
+        }
+        *p ^= 0xffffffff;	// 再次反转
+        if (*p != pat0) {	// 检查是否恢复
+            goto not_memory;
+        }
+        *p = old;			// 恢复为修改前的值
+    }
+    return i;
 }

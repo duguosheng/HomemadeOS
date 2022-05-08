@@ -50,6 +50,10 @@ void load_gdtr(int limit, int addr);
  * @param addr 基址
  */
 void load_idtr(int limit, int addr);
+// 加载CR0寄存器
+int load_cr0(void);
+// 设置CR0寄存器
+void store_cr0(int cr0);
 // 键盘中断处理函数
 void asm_inthandler21(void);
 // 鼠标中断处理函数
