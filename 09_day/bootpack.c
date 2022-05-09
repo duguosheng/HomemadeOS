@@ -1,8 +1,27 @@
 #include "bootpack.h"
 #include <stdio.h>
 
+#define MEMMAN_FREES		4090	/* 大约32KB */
+#define MEMMAN_ADDR			0x003c0000
+
+struct FREEINFO {	/* 可用内存信息 */
+    unsigned int addr;  // 起始地址
+    unsigned int size;  // 大小
+};
+
+struct MEMMAN {		/* Memory Manager, 内存管理 */
+    int frees;      // 空闲块的数量
+    int maxfrees;   // 在分配和释放过程中，frees出现的最大值
+    int lostsize;   // 释放失败的内存大小总和
+    int losts;      // 释放失败的次数
+    struct FREEINFO free[MEMMAN_FREES]; // 空闲块数组
+};
+
 unsigned int memtest(unsigned int start, unsigned int end);
-unsigned int memtest_sub(unsigned int start, unsigned int end);
+void memman_init(struct MEMMAN *man);
+unsigned int memman_total(struct MEMMAN *man);
+unsigned int memman_alloc(struct MEMMAN *man, unsigned int size);
+int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size);
 
 /**
  * @brief 程序入口点
@@ -15,6 +34,8 @@ void HariMain(void)
     int mx, my;  // 鼠标坐标
     int i;
     struct MOUSE_DEC mdec;
+    unsigned int memtotal;
+    struct MEMMAN *memman = (struct MEMMAN *)MEMMAN_ADDR;   // 将内存管理结构体放在MEMMAN_ADDR处（高地址）
 
     init_gdtidt();
     init_pic();
@@ -37,8 +58,12 @@ void HariMain(void)
     sprintf(s, "(%d, %d)", mx, my);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 0, COL8_FFFFFF, s);
 
-    i = memtest(0x00400000, 0xbfffffff) / (1024 * 1024);
-    sprintf(s, "memory %dMB", i);
+    memtotal = memtest(0x00400000, 0xbfffffff);
+    memman_init(memman);
+    memman_free(memman, 0x00001000, 0x0009e000); /* 0x00001000 - 0x0009efff */
+    memman_free(memman, 0x00400000, memtotal - 0x00400000);
+
+    sprintf(s, "memory %dMB   free : %dKB", memtotal / (1024 * 1024), memman_total(memman) / 1024);
     putfonts8_asc(binfo->vram, binfo->scrnx, 0, 32, COL8_FFFFFF, s);
 
     for (;;) {
@@ -143,4 +168,132 @@ unsigned int memtest(unsigned int start, unsigned int end)
     }
 
     return i;
+}
+
+/**
+ * @brief 初始化MEMMAN结构体
+ *
+ * @param man 待初始化的结构体
+ */
+void memman_init(struct MEMMAN *man)
+{
+    man->frees = 0;			/* あき情報の個数 */
+    man->maxfrees = 0;		/* 状況観察用：freesの最大値 */
+    man->lostsize = 0;		/* 解放に失敗した合計サイズ */
+    man->losts = 0;			/* 解放に失敗した回数 */
+    return;
+}
+
+/**
+ * @brief 报告总空闲内存大小
+ *
+ * @param man 内存管理结构体
+ * @return unsigned int 空闲内存字节数
+ */
+unsigned int memman_total(struct MEMMAN *man)
+{
+    unsigned int i, t = 0;
+    for (i = 0; i < man->frees; i++) {
+        t += man->free[i].size;
+    }
+    return t;
+}
+
+/**
+ * @brief 分配内存空间
+ *
+ * @param man 内存管理结构体
+ * @param size 分配字节数
+ * @return unsigned int 分配的起始地址，失败返回0
+ */
+unsigned int memman_alloc(struct MEMMAN *man, unsigned int size)
+{
+    unsigned int i, a;
+    for (i = 0; i < man->frees; i++) {
+        if (man->free[i].size >= size) {
+            // 找到了足够大的内存
+            a = man->free[i].addr;
+            man->free[i].addr += size;
+            man->free[i].size -= size;
+            if (man->free[i].size == 0) {
+                // 如果free[i]的内存全部分配完毕，就移除一条可用信息
+                man->frees--;
+                for (; i < man->frees; i++) {
+                    man->free[i] = man->free[i + 1]; // 将free[i]之后的所有数据前移
+                }
+            }
+            return a;
+        }
+    }
+    return 0; // 没有可用空间
+}
+
+/**
+ * @brief 释放内存空间
+ *
+ * @param man 内存管理结构体
+ * @param addr 起始地址
+ * @param size 字节数
+ * @return int
+ */
+int memman_free(struct MEMMAN *man, unsigned int addr, unsigned int size)
+{
+    int i, j;
+    // 为便于归纳内存，将free[]按照addr（起始地址大小）的顺序排列
+    // 所以，先决定应该放在哪里
+    for (i = 0; i < man->frees; i++) {
+        if (man->free[i].addr > addr) {
+            break;
+        }
+    }
+    /* free[i - 1].addr < addr < free[i].addr */
+    if (i > 0) {
+        // 前面有空闲块
+        if (man->free[i - 1].addr + man->free[i - 1].size == addr) {
+            // 可以与前面的内存归并到一起
+            man->free[i - 1].size += size;
+            if (i < man->frees) {
+                // 后面也有空闲块
+                if (addr + size == man->free[i].addr) {
+                    // 可以与后面的内存归并到一起
+                    man->free[i - 1].size += man->free[i].size;
+                    // 删除man->free[i]
+                    // 将man->free[i-1]，当前要释放区域，man->free[i]合并到一起
+                    man->frees--;
+                    for (; i < man->frees; i++) {
+                        man->free[i] = man->free[i + 1]; // 将free[i]之后的所有数据前移
+                    }
+                }
+            }
+            return 0; // 结束
+        }
+    }
+    // 无法与前面的可用空间归纳到一起
+    if (i < man->frees) {
+        // 后面有空闲块
+        if (addr + size == man->free[i].addr) {
+            // 可以与后面的内存归并到一起
+            man->free[i].addr = addr;
+            man->free[i].size += size;
+            return 0; // 结束
+        }
+    }
+    // 既不能合并到前面，也不能合并到后面
+    if (man->frees < MEMMAN_FREES) {
+        // free[i]之后的向后移动，腾出可用空间
+        for (j = man->frees; j > i; j--) {
+            man->free[j] = man->free[j - 1];
+        }
+        man->frees++;
+        if (man->maxfrees < man->frees) {
+            man->maxfrees = man->frees; // 更新最大值
+        }
+        man->free[i].addr = addr;
+        man->free[i].size = size;
+        return 0; // 结束
+    }
+    // free[]空间不足
+    man->losts++;
+    man->lostsize += size;
+    return -1; // 释放失败
 }
