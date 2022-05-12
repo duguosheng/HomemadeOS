@@ -154,6 +154,9 @@ void sheet_refresh(struct SHTCTL *ctl)
             for (bx = 0; bx < sht->bxsize; bx++) {
                 vx = sht->vx0 + bx;
                 c = buf[by * sht->bxsize + bx];
+                // 只有当前的颜色不是透明色号时才进行渲染
+                // 例如对于鼠标来说，箭头以外的色号是99，而col_inv也是99
+                // 那么就不对其进行渲染，从而不覆盖下面图层的颜色
                 if (c != sht->col_inv) {
                     vram[vy * ctl->xsize + vx] = c;
                 }

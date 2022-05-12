@@ -15,7 +15,7 @@ void HariMain(void)
     unsigned int memtotal;
     struct MEMMAN *memman = (struct MEMMAN *)MEMMAN_ADDR;   // 将内存管理结构体放在MEMMAN_ADDR处（高地址）
     struct SHTCTL *shtctl;
-    struct SHEET *sht_back, *sht_mouse;
+    struct SHEET *sht_back, *sht_mouse;         // back=background
     unsigned char *buf_back, buf_mouse[256];
 
     init_gdtidt();
@@ -42,7 +42,7 @@ void HariMain(void)
     sheet_setbuf(sht_back, buf_back, binfo->scrnx, binfo->scrny, -1);   // 没有透明色
     sheet_setbuf(sht_mouse, buf_mouse, 16, 16, 99);                     // 透明色号99
     init_screen8(buf_back, binfo->scrnx, binfo->scrny);
-    init_mouse_cursor8(buf_mouse, 99);
+    init_mouse_cursor8(buf_mouse, 99);      // 将背景设置为99
     sheet_slide(shtctl, sht_back, 0, 0);    // 绘制背景图层
     mx = (binfo->scrnx - 16) / 2;           // mid_x，16是鼠标宽度
     my = (binfo->scrny - 28 - 16) / 2;      // mid_y，16是鼠标宽度，28是底部横条高度

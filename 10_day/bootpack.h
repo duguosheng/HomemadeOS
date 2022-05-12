@@ -3,7 +3,8 @@ struct BOOTINFO {       // 0x0ff0-0x0fff
     char leds;          // 启动时键盘LED状态
     char vmode;         // 显卡模式彩色位数
     char reserve;
-    short scrnx, scrny; // 屏幕分辨率
+    short scrnx;        // 屏幕分辨率(x方向)
+    short scrny;        // 屏幕分辨率(y方向)
     char *vram;         // 显存地址
 };
 
