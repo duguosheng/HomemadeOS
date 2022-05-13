@@ -81,25 +81,32 @@ void sheet_setbuf(struct SHEET *sht, unsigned char *buf, int xsize, int ysize, i
  */
 void sheet_refreshsub(struct SHTCTL *ctl, int vx0, int vy0, int vx1, int vy1)
 {
-    int h, bx, by, vx, vy;
+    int h, bx, by, vx, vy, bx0, by0, bx1, by1;
     unsigned char *buf, c, *vram = ctl->vram;
     struct SHEET *sht;
     // 从下往上绘制所有图层，上面的就会覆盖掉下面的，达到层级效果
     for (h = 0; h <= ctl->top; h++) {
         sht = ctl->sheets[h];
         buf = sht->buf;
-        for (by = 0; by < sht->bysize; by++) {
+        // 使用vx0~vy1，对bx0~by1进行倒推
+        bx0 = vx0 - sht->vx0;
+        by0 = vy0 - sht->vy0;
+        bx1 = vx1 - sht->vx0;
+        by1 = vy1 - sht->vy0;
+        if (bx0 < 0) { bx0 = 0; }
+        if (by0 < 0) { by0 = 0; }
+        if (bx1 > sht->bxsize) { bx1 = sht->bxsize; }
+        if (by1 > sht->bysize) { by1 = sht->bysize; }
+        for (by = by0; by < by1; by++) {
             vy = sht->vy0 + by;
-            for (bx = 0; bx < sht->bxsize; bx++) {
+            for (bx = bx0; bx < bx1; bx++) {
                 vx = sht->vx0 + bx;
-                if (vx0 <= vx && vx < vx1 && vy0 <= vy && vy < vy1) {
-                    c = buf[by * sht->bxsize + bx];
-                    // 只有当前的颜色不是透明色号时才进行渲染
-                    // 例如对于鼠标来说，箭头以外的色号是99，而col_inv也是99
-                    // 那么就不对其进行渲染，从而不覆盖下面图层的颜色
-                    if (c != sht->col_inv) {
-                        vram[vy * ctl->xsize + vx] = c;
-                    }
+                c = buf[by * sht->bxsize + bx];
+                // 只有当前的颜色不是透明色号时才进行渲染
+                // 例如对于鼠标来说，箭头以外的色号是99，而col_inv也是99
+                // 那么就不对其进行渲染，从而不覆盖下面图层的颜色
+                if (c != sht->col_inv) {
+                    vram[vy * ctl->xsize + vx] = c;
                 }
             }
         }
